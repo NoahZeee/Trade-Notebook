@@ -8,9 +8,11 @@ Install dependencies with `npm install`, then launch the desktop app with `npm r
 
 ## Build an executable
 
-Run `npm run dist` to create the Windows installer in `C:\TradeNotebookBuild\release`.
+The repository includes the built installer at [release/Trade-Notebook-Setup-1.0.0.exe](release/Trade-Notebook-Setup-1.0.0.exe).
 
-The installer you would share is `C:\TradeNotebookBuild\release\Trade-Notebook-Setup-1.0.0.exe`.
+If you rebuild it locally, `npm run dist` will create the Windows installer in `C:\TradeNotebookBuild\release`.
+
+The installer you would share from the repo is [release/Trade-Notebook-Setup-1.0.0.exe](release/Trade-Notebook-Setup-1.0.0.exe).
 
 ## Current behavior
 
