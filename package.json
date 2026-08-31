@@ -33,7 +33,7 @@
     "productName": "Trade Notebook",
     "asar": true,
     "directories": {
-      "output": "release"
+      "output": "C:/TradeNotebookBuild/release"
     },
     "files": [
       "dist/**",

@@ -8,7 +8,16 @@ Install dependencies with `npm install`, then launch the desktop app with `npm r
 
 ## Build an executable
 
-Run `npm run dist` to create the Windows installer at [release/Trade-Notebook-Setup-1.0.0.exe](release/Trade-Notebook-Setup-1.0.0.exe).
+Run `npm run dist` to create the Windows installer in `C:\TradeNotebookBuild\release`.
+
+The installer you would share is `C:\TradeNotebookBuild\release\Trade-Notebook-Setup-1.0.0.exe`.
+
+## Current behavior
+
+- Backtest sessions keep trades in entry order so replay logging is preserved exactly as entered.
+- Live sessions sort by trade date and time.
+- The add-trade form inherits the active session type automatically, so there is no redundant session-type field.
+- Trade logs, charts, and controls use a dark theme with readable select styling.
 
 ## Features
 

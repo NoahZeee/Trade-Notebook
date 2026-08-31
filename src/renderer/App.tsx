@@ -4,7 +4,6 @@ import { defaultNotebookData, NotebookData, SessionType, TradeEntry, TradeSessio
 
 type TradeFormState = {
   asset: string;
-  sessionType: SessionType;
   side: 'Long' | 'Short';
   date: string;
   entryTime: string;
@@ -18,7 +17,6 @@ type TradeFormState = {
 
 const emptyTradeForm: TradeFormState = {
   asset: '',
-  sessionType: 'Backtest',
   side: 'Long',
   date: '',
   entryTime: '',
@@ -58,12 +56,20 @@ function computeStats(session: TradeSession) {
   return { totalPnL, wins, losses, winrate };
 }
 
-function buildChartData(session: TradeSession) {
-  const ordered = [...session.trades].sort((left, right) => {
+function getOrderedTrades(session: TradeSession) {
+  if (session.type === 'Backtest') {
+    return session.trades;
+  }
+
+  return [...session.trades].sort((left, right) => {
     const leftStamp = new Date(`${left.date}T${left.exitTime || left.entryTime || '00:00'}`).getTime();
     const rightStamp = new Date(`${right.date}T${right.exitTime || right.entryTime || '00:00'}`).getTime();
     return leftStamp - rightStamp;
   });
+}
+
+function buildChartData(session: TradeSession) {
+  const ordered = getOrderedTrades(session);
 
   let running = 0;
   return ordered.map((trade, index) => {
@@ -80,7 +86,7 @@ function updateSession(session: TradeSession, tradeId: string | null, form: Trad
   const nextTrade: TradeEntry = {
     id: tradeId ?? crypto.randomUUID(),
     asset: form.asset.trim(),
-    sessionType: form.sessionType,
+    sessionType: session.type,
     side: form.side,
     date: form.date,
     entryTime: form.entryTime,
@@ -94,7 +100,7 @@ function updateSession(session: TradeSession, tradeId: string | null, form: Trad
 
   return tradeId
     ? { ...session, trades: session.trades.map((trade) => (trade.id === tradeId ? nextTrade : trade)) }
-    : { ...session, trades: [nextTrade, ...session.trades] };
+    : { ...session, trades: [...session.trades, nextTrade] };
 }
 
 export default function App() {
@@ -138,12 +144,6 @@ export default function App() {
   const stats = useMemo(() => (activeSession ? computeStats(activeSession) : null), [activeSession]);
   const chartData = useMemo(() => (activeSession ? buildChartData(activeSession) : []), [activeSession]);
 
-  useEffect(() => {
-    if (activeSession) {
-      setTradeForm((current) => ({ ...current, sessionType: activeSession.type }));
-    }
-  }, [activeSession?.id]);
-
   function persistSessions(nextSessions: TradeSession[], nextActiveSessionId: string | null = activeSessionId) {
     setData((current) => ({ ...current, sessions: nextSessions, activeSessionId: nextActiveSessionId }));
   }
@@ -151,7 +151,7 @@ export default function App() {
   function handleCreateSession(type: SessionType) {
     const session = createSession(type);
     persistSessions([session, ...data.sessions], session.id);
-    setTradeForm({ ...emptyTradeForm, sessionType: type });
+    setTradeForm({ ...emptyTradeForm });
     setEditingTradeId(null);
   }
 
@@ -160,7 +160,7 @@ export default function App() {
     const nextActive = activeSessionId === sessionId ? nextSessions[0]?.id ?? null : activeSessionId;
     persistSessions(nextSessions, nextActive);
     setEditingTradeId(null);
-    setTradeForm({ ...emptyTradeForm, sessionType: nextSessions.find((session) => session.id === nextActive)?.type ?? 'Backtest' });
+    setTradeForm({ ...emptyTradeForm });
   }
 
   function handleSaveTrade() {
@@ -173,7 +173,7 @@ export default function App() {
     );
 
     persistSessions(nextSessions, activeSession.id);
-    setTradeForm({ ...emptyTradeForm, sessionType: activeSession.type });
+    setTradeForm({ ...emptyTradeForm });
     setEditingTradeId(null);
   }
 
@@ -181,7 +181,6 @@ export default function App() {
     setEditingTradeId(trade.id);
     setTradeForm({
       asset: trade.asset,
-      sessionType: trade.sessionType,
       side: trade.side,
       date: trade.date,
       entryTime: trade.entryTime,
@@ -208,7 +207,7 @@ export default function App() {
     persistSessions(nextSessions, activeSession.id);
     if (editingTradeId === tradeId) {
       setEditingTradeId(null);
-      setTradeForm({ ...emptyTradeForm, sessionType: activeSession.type });
+      setTradeForm({ ...emptyTradeForm });
     }
   }
 
@@ -391,18 +390,6 @@ export default function App() {
                     />
                   </label>
                   <label>
-                    Session type
-                    <select
-                      value={tradeForm.sessionType}
-                      onChange={(event) =>
-                        setTradeForm((current) => ({ ...current, sessionType: event.target.value as SessionType }))
-                      }
-                    >
-                      <option value="Backtest">Backtest</option>
-                      <option value="Live">Live</option>
-                    </select>
-                  </label>
-                  <label>
                     Side
                     <select
                       value={tradeForm.side}
@@ -505,7 +492,7 @@ export default function App() {
                       type="button"
                       onClick={() => {
                         setEditingTradeId(null);
-                        setTradeForm({ ...emptyTradeForm, sessionType: activeSession.type });
+                        setTradeForm({ ...emptyTradeForm });
                       }}
                     >
                       Cancel edit
@@ -573,14 +560,14 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {activeSession.trades.length === 0 ? (
+                    {getOrderedTrades(activeSession).length === 0 ? (
                       <tr>
                         <td colSpan={9} className="empty-table">
                           No trades logged yet.
                         </td>
                       </tr>
                     ) : (
-                      activeSession.trades.map((trade) => (
+                      getOrderedTrades(activeSession).map((trade) => (
                         <tr key={trade.id}>
                           <td>{trade.asset}</td>
                           <td>
