@@ -62,10 +62,9 @@ button {
 }
 
 .app-shell {
-  display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
-  gap: 24px;
+  min-height: 100vh;
   padding: 24px;
+  overflow-x: hidden;
 }
 
 .sidebar,
@@ -514,5 +513,477 @@ th {
   .hero-badge {
     width: 100%;
     text-align: left;
+  }
+}
+
+/* ===== HOME / DASHBOARD VIEW ===== */
+
+.home-view {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.home-header {
+  margin-bottom: 32px;
+}
+
+.home-header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+
+.home-brand h1 {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  line-height: 0.95;
+  margin: 0;
+}
+
+.home-brand .eyebrow {
+  margin-bottom: 12px;
+}
+
+.home-quick-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.home-content {
+  display: grid;
+  gap: 40px;
+}
+
+.home-section {
+  display: grid;
+  gap: 20px;
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.section-head h2 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.badge {
+  background: rgba(102, 215, 255, 0.15);
+  color: var(--accent);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.empty-state {
+  padding: 60px 40px;
+  text-align: center;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.sessions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 20px;
+}
+
+.session-card-large {
+  background: linear-gradient(135deg, rgba(13, 24, 40, 0.7), rgba(8, 15, 26, 0.9));
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 24px;
+  cursor: pointer;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 16px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.session-card-large:hover {
+  border-color: rgba(102, 215, 255, 0.6);
+  background: linear-gradient(135deg, rgba(13, 24, 40, 0.85), rgba(8, 15, 26, 0.95));
+  box-shadow: 0 8px 32px rgba(102, 215, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.session-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.session-card-header h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.2rem;
+  color: var(--text);
+}
+
+.session-type-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: 'IBM Plex Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.session-type-badge.type-backtest {
+  background: rgba(124, 140, 255, 0.2);
+  color: #a5b4ff;
+}
+
+.session-type-badge.type-live {
+  background: rgba(82, 227, 180, 0.2);
+  color: #98f0cf;
+}
+
+.card-close-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 28px;
+  padding: 0;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.2s;
+}
+
+.card-close-btn:hover {
+  color: var(--danger);
+}
+
+.session-card-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.stat-mini {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.stat-mini .label {
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+}
+
+.stat-mini .value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.stat-mini .value.positive {
+  color: var(--success);
+}
+
+.stat-mini .value.negative {
+  color: var(--danger);
+}
+
+.session-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.starting-balance {
+  font-weight: 600;
+}
+
+.trade-count {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.85rem;
+}
+
+.preset-manager {
+  display: grid;
+  gap: 16px;
+}
+
+.preset-input-group {
+  display: flex;
+  gap: 10px;
+}
+
+.preset-input-group input {
+  flex: 1;
+}
+
+.preset-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* ===== SESSION DETAIL VIEW ===== */
+
+.session-view {
+  width: 100%;
+}
+
+.session-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.session-header-content {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.back-button {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.back-button:hover {
+  background: rgba(102, 215, 255, 0.1);
+  border-color: rgba(102, 215, 255, 0.4);
+}
+
+.session-header-content > div > .eyebrow {
+  margin: 0 0 8px 0;
+}
+
+.session-header-content h2 {
+  margin: 0;
+}
+
+.session-header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.header-badge {
+  background: rgba(102, 215, 255, 0.08);
+  border: 1px solid rgba(102, 215, 255, 0.2);
+  padding: 12px 16px;
+  border-radius: 14px;
+  display: grid;
+  gap: 3px;
+  text-align: right;
+}
+
+.header-badge span {
+  font-size: 0.75rem;
+  color: var(--accent);
+  font-family: 'IBM Plex Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.header-badge strong {
+  font-size: 1.1rem;
+}
+
+.session-content {
+  display: grid;
+  gap: 24px;
+}
+
+.settings-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.settings-panel label {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.settings-panel input {
+  width: 100%;
+}
+
+/* ===== TRADE FORM MODAL ===== */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-content {
+  background: linear-gradient(180deg, rgba(13, 24, 40, 0.98), rgba(8, 15, 26, 0.98));
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 24px 24px 16px;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: inherit;
+  border-radius: 24px 24px 0 0;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 32px;
+  padding: 0;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.2s;
+}
+
+.modal-close-btn:hover {
+  color: var(--text);
+}
+
+.modal-body {
+  padding: 24px;
+  display: grid;
+  gap: 20px;
+}
+
+.modal-footer {
+  padding: 16px 24px 24px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.modal-footer button {
+  min-width: 120px;
+}
+
+/* ===== RESPONSIVE ===== */
+
+@media (max-width: 1200px) {
+  .sessions-grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  }
+
+  .session-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .session-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .sessions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-header-content {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .home-quick-actions {
+    flex-direction: column;
+  }
+
+  .home-quick-actions button {
+    width: 100%;
+  }
+
+  .session-card-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .session-header-content {
+    flex-direction: column;
+  }
+
+  .session-header-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .session-header-actions button {
+    width: 100%;
+  }
+
+  .modal-content {
+    max-height: 95vh;
+  }
+
+  .modal-footer {
+    flex-direction: column;
+  }
+
+  .modal-footer button {
+    width: 100%;
   }
 }

@@ -150,6 +150,8 @@ export default function App() {
   const [tradeForm, setTradeForm] = useState<TradeFormState>(emptyTradeForm);
   const [editingTradeId, setEditingTradeId] = useState<string | null>(null);
   const [newConfluence, setNewConfluence] = useState('');
+  const [showTradeModal, setShowTradeModal] = useState(false);
+  const [currentView, setCurrentView] = useState<'home' | 'session'>('home');
 
   useEffect(() => {
     let mounted = true;
@@ -183,6 +185,18 @@ export default function App() {
   );
   const stats = useMemo(() => (activeSession ? computeStats(activeSession) : null), [activeSession]);
   const chartData = useMemo(() => (activeSession ? buildChartData(activeSession) : []), [activeSession]);
+
+  function handleSelectSession(sessionId: string) {
+    setActiveSessionId(sessionId);
+    setCurrentView('session');
+    setShowTradeModal(false);
+  }
+
+  function handleBackToHome() {
+    setCurrentView('home');
+    setEditingTradeId(null);
+    setTradeForm({ ...emptyTradeForm });
+  }
 
   function persistSessions(nextSessions: TradeSession[], nextActiveSessionId: string | null = activeSessionId) {
     setData((current) => ({ ...current, sessions: nextSessions, activeSessionId: nextActiveSessionId }));
@@ -296,402 +310,486 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand-card">
-          <p className="eyebrow">Trade Notebook</p>
-          <h1>Track every session with a sharper workflow.</h1>
-          <p>
-            Separate backtests and live trades, keep clean stats by session, and review a running balance with a modern
-            dark interface.
-          </p>
-        </div>
-
-        <div className="action-stack">
-          <button className="primary-button" type="button" onClick={() => handleCreateSession('Backtest')}>
-            New backtest session
-          </button>
-          <button className="secondary-button" type="button" onClick={() => handleCreateSession('Live')}>
-            New live session
-          </button>
-        </div>
-
-        <section className="panel">
-          <div className="panel-head">
-            <h2>Sessions</h2>
-            <span>{data.sessions.length}</span>
-          </div>
-          <div className="session-list">
-            {data.sessions.length === 0 ? (
-              <p className="empty-copy">Create a session to begin logging trades.</p>
-            ) : (
-              data.sessions.map((session) => {
-                const sessionStats = computeStats(session);
-                const active = session.id === activeSession?.id;
-                return (
-                  <button
-                    key={session.id}
-                    type="button"
-                    className={`session-card ${active ? 'active' : ''}`}
-                    onClick={() => setActiveSessionId(session.id)}
-                  >
-                    <div>
-                      <strong>{session.name}</strong>
-                      <span>{session.type}</span>
-                    </div>
-                    <div className="session-meta">
-                      <span>{session.trades.length} trades</span>
-                      <span>{formatCurrency(sessionStats.totalPnL)}</span>
-                    </div>
-                  </button>
-                );
-              })
-            )}
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="panel-head">
-            <h2>Confluence presets</h2>
-            <span>{data.settings.confluenceOptions.length}</span>
-          </div>
-          <div className="preset-row">
-            <input
-              value={newConfluence}
-              onChange={(event) => setNewConfluence(event.target.value)}
-              placeholder="Add a preset"
-            />
-            <button className="secondary-button" type="button" onClick={handleAddConfluenceOption}>
-              Add
-            </button>
-          </div>
-          <div className="preset-list">
-            {data.settings.confluenceOptions.map((option) => (
-              <button key={option} type="button" className="preset-pill" onClick={() => handleRemoveConfluenceOption(option)}>
-                {option}
-              </button>
-            ))}
-          </div>
-        </section>
-      </aside>
-
-      <main className="workspace">
-        <header className="hero">
-          <div>
-            <p className="eyebrow">Session dashboard</p>
-            <h2>{activeSession ? activeSession.name : 'No session selected'}</h2>
-            <p>
-              Log trades, compare sessions, and keep your execution notes aligned with a balanced, high-contrast layout.
-            </p>
-          </div>
-          {activeSession ? (
-            <div className="hero-actions">
-              <div className="hero-badge">
-                <span>{activeSession.type}</span>
-                <strong>{formatCurrency(activeSession.startingBalance)}</strong>
-                <small>starting balance</small>
+      {currentView === 'home' ? (
+        // ===== HOME / DASHBOARD VIEW =====
+        <div className="home-view">
+          <header className="home-header">
+            <div className="home-header-content">
+              <div className="home-brand">
+                <p className="eyebrow">Trade Notebook</p>
+                <h1>Track every session with a sharper workflow.</h1>
               </div>
-              <button className="secondary-button" type="button" onClick={() => void exportActiveSession(activeSession, 'json')}>
-                Export JSON
-              </button>
-              <button className="secondary-button" type="button" onClick={() => void exportActiveSession(activeSession, 'csv')}>
-                Export CSV
-              </button>
+              <div className="home-quick-actions">
+                <button className="primary-button" onClick={() => handleCreateSession('Backtest')}>
+                  + New Backtest
+                </button>
+                <button className="secondary-button" onClick={() => handleCreateSession('Live')}>
+                  + New Live
+                </button>
+              </div>
             </div>
-          ) : null}
-        </header>
+          </header>
 
-        {activeSession ? (
-          <>
-            <section className="stats-grid">
-              <article className="stat-card accent">
-                <span>Total PnL</span>
-                <strong>{formatCurrency(stats?.totalPnL ?? 0)}</strong>
-              </article>
-              <article className="stat-card">
-                <span>Win rate</span>
-                <strong>{(stats?.winrate ?? 0).toFixed(1)}%</strong>
-              </article>
-              <article className="stat-card">
-                <span>Wins</span>
-                <strong>{stats?.wins ?? 0}</strong>
-              </article>
-              <article className="stat-card">
-                <span>Losses</span>
-                <strong>{stats?.losses ?? 0}</strong>
-              </article>
+          <main className="home-content">
+            <section className="home-section">
+              <div className="section-head">
+                <h2>Trading Sessions</h2>
+                <span className="badge">{data.sessions.length}</span>
+              </div>
+
+              {data.sessions.length === 0 ? (
+                <div className="empty-state">
+                  <p>No sessions yet. Create your first session to begin tracking trades.</p>
+                </div>
+              ) : (
+                <div className="sessions-grid">
+                  {data.sessions.map((session) => {
+                    const sessionStats = computeStats(session);
+                    const netPnL = sessionStats.totalPnL;
+                    return (
+                      <div
+                        key={session.id}
+                        className="session-card-large"
+                        onClick={() => handleSelectSession(session.id)}
+                      >
+                        <div className="session-card-header">
+                          <div>
+                            <h3>{session.name}</h3>
+                            <span className={`session-type-badge type-${session.type.toLowerCase()}`}>
+                              {session.type}
+                            </span>
+                          </div>
+                          <button
+                            className="card-close-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.confirm(`Delete session "${session.name}"?`)) {
+                                handleDeleteSession(session.id);
+                              }
+                            }}
+                            title="Delete session"
+                          >
+                            ×
+                          </button>
+                        </div>
+
+                        <div className="session-card-stats">
+                          <div className="stat-mini">
+                            <span className="label">Total PnL</span>
+                            <span className={`value ${netPnL >= 0 ? 'positive' : 'negative'}`}>
+                              {formatCurrency(netPnL)}
+                            </span>
+                          </div>
+                          <div className="stat-mini">
+                            <span className="label">Win Rate</span>
+                            <span className="value">{sessionStats.winrate.toFixed(1)}%</span>
+                          </div>
+                          <div className="stat-mini">
+                            <span className="label">Trades</span>
+                            <span className="value">{session.trades.length}</span>
+                          </div>
+                        </div>
+
+                        <div className="session-card-footer">
+                          <span className="starting-balance">
+                            Starting: {formatCurrency(session.startingBalance)}
+                          </span>
+                          <span className="trade-count">
+                            {sessionStats.wins}W {sessionStats.losses}L
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </section>
 
-            <section className="grid two-column">
-              <article className="panel form-panel">
-                <div className="panel-head">
-                  <h2>{editingTradeId ? 'Edit trade' : 'Add trade'}</h2>
-                  <span>{activeSession.trades.length}</span>
+            <section className="home-section">
+              <div className="section-head">
+                <h2>Confluence Presets</h2>
+                <span className="badge">{data.settings.confluenceOptions.length}</span>
+              </div>
+
+              <div className="preset-manager">
+                <div className="preset-input-group">
+                  <input
+                    value={newConfluence}
+                    onChange={(event) => setNewConfluence(event.target.value)}
+                    placeholder="Add a confluence preset"
+                  />
+                  <button className="secondary-button" onClick={handleAddConfluenceOption}>
+                    Add
+                  </button>
                 </div>
 
-                <div className="form-grid">
-                  <label>
-                    Asset
-                    <input
-                      value={tradeForm.asset}
-                      onChange={(event) => setTradeForm((current) => ({ ...current, asset: event.target.value }))}
-                      placeholder="ES, NQ, AAPL, EURUSD"
-                    />
-                  </label>
-                  <label>
-                    Side
-                    <select
-                      value={tradeForm.side}
-                      onChange={(event) =>
-                        setTradeForm((current) => ({ ...current, side: event.target.value as 'Long' | 'Short' }))
-                      }
+                <div className="preset-list">
+                  {data.settings.confluenceOptions.map((option) => (
+                    <button
+                      key={option}
+                      className="preset-pill"
+                      onClick={() => handleRemoveConfluenceOption(option)}
+                      title="Click to remove"
                     >
-                      <option value="Long">Long</option>
-                      <option value="Short">Short</option>
-                    </select>
-                  </label>
-                  <label>
-                    Date
-                    <input
-                      type="date"
-                      value={tradeForm.date}
-                      onChange={(event) => setTradeForm((current) => ({ ...current, date: event.target.value }))}
-                    />
-                  </label>
-                  <label>
-                    Entry time
-                    <input
-                      type="time"
-                      value={tradeForm.entryTime}
-                      onChange={(event) => setTradeForm((current) => ({ ...current, entryTime: event.target.value }))}
-                    />
-                  </label>
-                  <label>
-                    Exit time
-                    <input
-                      type="time"
-                      value={tradeForm.exitTime}
-                      onChange={(event) => setTradeForm((current) => ({ ...current, exitTime: event.target.value }))}
-                    />
-                  </label>
-                  <label>
-                    PnL
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={tradeForm.pnl}
-                      onChange={(event) => setTradeForm((current) => ({ ...current, pnl: event.target.value }))}
-                    />
-                  </label>
-                  <label>
-                    Quantity
-                    <input
-                      type="number"
-                      step="1"
-                      value={tradeForm.quantity}
-                      onChange={(event) => setTradeForm((current) => ({ ...current, quantity: event.target.value }))}
-                    />
-                  </label>
-                  <label>
-                    Fees
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={tradeForm.fees}
-                      onChange={(event) => setTradeForm((current) => ({ ...current, fees: event.target.value }))}
-                    />
-                  </label>
-                  <label className="full-width">
-                    Notes
-                    <textarea
-                      value={tradeForm.comments}
-                      onChange={(event) => setTradeForm((current) => ({ ...current, comments: event.target.value }))}
-                      placeholder="Trade thesis, execution notes, mistakes, review comments"
-                    />
-                  </label>
+                      {option}
+                    </button>
+                  ))}
                 </div>
+              </div>
+            </section>
+          </main>
+        </div>
+      ) : (
+        // ===== SESSION DETAIL VIEW =====
+        <div className="session-view">
+          <header className="session-header">
+            <div className="session-header-content">
+              <button className="back-button" onClick={handleBackToHome}>
+                ← Back
+              </button>
+              <div>
+                <p className="eyebrow">Session Details</p>
+                <h2>{activeSession?.name}</h2>
+              </div>
+            </div>
+            {activeSession && (
+              <div className="session-header-actions">
+                <div className="header-badge">
+                  <span>{activeSession.type}</span>
+                  <strong>{formatCurrency(activeSession.startingBalance)}</strong>
+                </div>
+                <button className="primary-button" onClick={() => setShowTradeModal(true)}>
+                  + Add Trade
+                </button>
+                <button className="secondary-button" onClick={() => void exportActiveSession(activeSession, 'json')}>
+                  Export JSON
+                </button>
+                <button className="secondary-button" onClick={() => void exportActiveSession(activeSession, 'csv')}>
+                  Export CSV
+                </button>
+              </div>
+            )}
+          </header>
 
-                <details className="confluence-picker" open>
-                  <summary>Confluences used</summary>
-                  <div className="confluence-options">
-                    {data.settings.confluenceOptions.length === 0 ? (
-                      <p className="empty-copy">Add a confluence preset first.</p>
+          {activeSession ? (
+            <main className="session-content">
+              <section className="stats-grid">
+                <article className="stat-card accent">
+                  <span>Total PnL</span>
+                  <strong>{formatCurrency(stats?.totalPnL ?? 0)}</strong>
+                </article>
+                <article className="stat-card">
+                  <span>Win rate</span>
+                  <strong>{(stats?.winrate ?? 0).toFixed(1)}%</strong>
+                </article>
+                <article className="stat-card">
+                  <span>Wins</span>
+                  <strong>{stats?.wins ?? 0}</strong>
+                </article>
+                <article className="stat-card">
+                  <span>Losses</span>
+                  <strong>{stats?.losses ?? 0}</strong>
+                </article>
+              </section>
+
+              <section className="grid two-column">
+                <article className="panel chart-panel">
+                  <div className="panel-head">
+                    <h2>Running Balance</h2>
+                    <span>{chartData.length} trades</span>
+                  </div>
+                  <div className="chart-wrap">
+                    {chartData.length === 0 ? (
+                      <div className="chart-empty">Add trades to see the balance curve.</div>
                     ) : (
-                      data.settings.confluenceOptions.map((option) => (
-                        <label key={option} className="checkbox-row">
-                          <input
-                            type="checkbox"
-                            checked={tradeForm.confluences.includes(option)}
-                            onChange={() => handleToggleConfluence(option)}
+                      <ResponsiveContainer width="100%" height={320}>
+                        <ComposedChart data={chartData}>
+                          <defs>
+                            <linearGradient id="balanceFill" x1="0" x2="0" y1="0" y2="1">
+                              <stop offset="5%" stopColor="#64d2ff" stopOpacity={0.36} />
+                              <stop offset="95%" stopColor="#64d2ff" stopOpacity={0.02} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+                          <XAxis dataKey="label" tick={{ fill: '#8ea5c7', fontSize: 12 }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fill: '#8ea5c7', fontSize: 12 }} axisLine={false} tickLine={false} />
+                          <Tooltip
+                            contentStyle={{
+                              background: 'rgba(8, 17, 31, 0.98)',
+                              border: '1px solid rgba(255,255,255,0.12)',
+                              borderRadius: 16,
+                              color: '#eff6ff'
+                            }}
                           />
-                          <span>{option}</span>
-                        </label>
-                      ))
+                          <Area type="monotone" dataKey="balance" stroke="transparent" fill="url(#balanceFill)" />
+                          <Line type="monotone" dataKey="balance" stroke="#64d2ff" strokeWidth={3} dot={false} />
+                        </ComposedChart>
+                      </ResponsiveContainer>
                     )}
                   </div>
-                </details>
+                </article>
 
-                <div className="form-actions">
-                  <button className="primary-button" type="button" onClick={handleSaveTrade}>
-                    {editingTradeId ? 'Update trade' : 'Save trade'}
-                  </button>
-                  {editingTradeId ? (
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      onClick={() => {
-                        setEditingTradeId(null);
-                        setTradeForm({ ...emptyTradeForm });
+                <article className="panel settings-panel">
+                  <div className="panel-head">
+                    <h2>Session Settings</h2>
+                  </div>
+                  <label>
+                    Session name
+                    <input
+                      value={activeSession.name}
+                      onChange={(event) => {
+                        const nextSessions = data.sessions.map((s) =>
+                          s.id === activeSession.id ? { ...s, name: event.target.value } : s
+                        );
+                        persistSessions(nextSessions, activeSession.id);
                       }}
-                    >
-                      Cancel edit
-                    </button>
-                  ) : null}
-                </div>
-              </article>
+                    />
+                  </label>
+                  <label>
+                    Starting balance
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={activeSession.startingBalance}
+                      onChange={(event) => {
+                        const nextSessions = data.sessions.map((s) =>
+                          s.id === activeSession.id ? { ...s, startingBalance: Number(event.target.value || 0) } : s
+                        );
+                        persistSessions(nextSessions, activeSession.id);
+                      }}
+                    />
+                  </label>
+                  <button
+                    className="danger-button"
+                    onClick={() => {
+                      if (window.confirm(`Delete session "${activeSession.name}"? This cannot be undone.`)) {
+                        handleDeleteSession(activeSession.id);
+                        handleBackToHome();
+                      }
+                    }}
+                  >
+                    Delete Session
+                  </button>
+                </article>
+              </section>
 
-              <article className="panel chart-panel">
+              <section className="panel table-panel">
                 <div className="panel-head">
-                  <h2>Running balance</h2>
-                  <span>{chartData.length} points</span>
+                  <h2>Trade Log</h2>
+                  <span>{activeSession.trades.length} trades</span>
                 </div>
-                <div className="chart-wrap">
-                  {chartData.length === 0 ? (
-                    <div className="chart-empty">Add trades to see the balance curve.</div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height={320}>
-                      <ComposedChart data={chartData}>
-                        <defs>
-                          <linearGradient id="balanceFill" x1="0" x2="0" y1="0" y2="1">
-                            <stop offset="5%" stopColor="#64d2ff" stopOpacity={0.36} />
-                            <stop offset="95%" stopColor="#64d2ff" stopOpacity={0.02} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
-                        <XAxis dataKey="label" tick={{ fill: '#8ea5c7', fontSize: 12 }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fill: '#8ea5c7', fontSize: 12 }} axisLine={false} tickLine={false} />
-                        <Tooltip
-                          contentStyle={{
-                            background: 'rgba(8, 17, 31, 0.98)',
-                            border: '1px solid rgba(255,255,255,0.12)',
-                            borderRadius: 16,
-                            color: '#eff6ff'
-                          }}
-                        />
-                        <Area type="monotone" dataKey="balance" stroke="transparent" fill="url(#balanceFill)" />
-                        <Line type="monotone" dataKey="balance" stroke="#64d2ff" strokeWidth={3} dot={false} />
-                      </ComposedChart>
-                    </ResponsiveContainer>
-                  )}
-                </div>
-              </article>
-            </section>
 
-            <section className="panel table-panel">
-              <div className="panel-head">
-                <h2>Trade log</h2>
-                <span>{activeSession.trades.length} trades</span>
-              </div>
-
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Asset</th>
-                      <th>Side</th>
-                      <th>Date</th>
-                      <th>Entry</th>
-                      <th>Exit</th>
-                      <th>PnL</th>
-                      <th>Confluences</th>
-                      <th>Comments</th>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {getOrderedTrades(activeSession).length === 0 ? (
+                <div className="table-wrap">
+                  <table>
+                    <thead>
                       <tr>
-                        <td colSpan={9} className="empty-table">
-                          No trades logged yet.
-                        </td>
+                        <th>Asset</th>
+                        <th>Side</th>
+                        <th>Date</th>
+                        <th>Entry</th>
+                        <th>Exit</th>
+                        <th>PnL</th>
+                        <th>Confluences</th>
+                        <th>Comments</th>
+                        <th />
                       </tr>
-                    ) : (
-                      getOrderedTrades(activeSession).map((trade) => (
-                        <tr key={trade.id}>
-                          <td>{trade.asset}</td>
-                          <td>
-                            <span className={`side-pill ${trade.side.toLowerCase()}`}>{trade.side}</span>
-                          </td>
-                          <td>{trade.date}</td>
-                          <td>{trade.entryTime}</td>
-                          <td>{trade.exitTime}</td>
-                          <td className={trade.pnl - trade.fees >= 0 ? 'positive' : 'negative'}>
-                            {formatCurrency(trade.pnl - trade.fees)}
-                          </td>
-                          <td>{trade.confluences.join(', ') || '—'}</td>
-                          <td className="comments-cell">{trade.comments || '—'}</td>
-                          <td>
-                            <div className="row-actions">
-                              <button type="button" onClick={() => handleEditTrade(trade)}>
-                                Edit
-                              </button>
-                              <button type="button" onClick={() => handleDeleteTrade(trade.id)}>
-                                Delete
-                              </button>
-                            </div>
+                    </thead>
+                    <tbody>
+                      {getOrderedTrades(activeSession).length === 0 ? (
+                        <tr>
+                          <td colSpan={9} className="empty-table">
+                            No trades logged yet. Click "Add Trade" to get started.
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+                      ) : (
+                        getOrderedTrades(activeSession).map((trade) => (
+                          <tr key={trade.id}>
+                            <td>{trade.asset}</td>
+                            <td>
+                              <span className={`side-pill ${trade.side.toLowerCase()}`}>{trade.side}</span>
+                            </td>
+                            <td>{trade.date}</td>
+                            <td>{trade.entryTime}</td>
+                            <td>{trade.exitTime}</td>
+                            <td className={trade.pnl - trade.fees >= 0 ? 'positive' : 'negative'}>
+                              {formatCurrency(trade.pnl - trade.fees)}
+                            </td>
+                            <td>{trade.confluences.join(', ') || '—'}</td>
+                            <td className="comments-cell">{trade.comments || '—'}</td>
+                            <td>
+                              <div className="row-actions">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleEditTrade(trade);
+                                    setShowTradeModal(true);
+                                  }}
+                                >
+                                  Edit
+                                </button>
+                                <button type="button" onClick={() => handleDeleteTrade(trade.id)}>
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </main>
+          ) : null}
 
-            <section className="panel session-controls">
-              <div className="panel-head">
-                <h2>Session controls</h2>
-                <span>Adjust the notebook</span>
+          {/* TRADE FORM MODAL */}
+          {showTradeModal && activeSession && (
+            <div className="modal-overlay" onClick={() => setShowTradeModal(false)}>
+              <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header">
+                  <h2>{editingTradeId ? 'Edit Trade' : 'Add Trade'}</h2>
+                  <button
+                    className="modal-close-btn"
+                    onClick={() => {
+                      setShowTradeModal(false);
+                      setEditingTradeId(null);
+                      setTradeForm({ ...emptyTradeForm });
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <div className="modal-body">
+                  <div className="form-grid">
+                    <label>
+                      Asset
+                      <input
+                        value={tradeForm.asset}
+                        onChange={(event) => setTradeForm((current) => ({ ...current, asset: event.target.value }))}
+                        placeholder="ES, NQ, AAPL, EURUSD"
+                      />
+                    </label>
+                    <label>
+                      Side
+                      <select
+                        value={tradeForm.side}
+                        onChange={(event) =>
+                          setTradeForm((current) => ({ ...current, side: event.target.value as 'Long' | 'Short' }))
+                        }
+                      >
+                        <option value="Long">Long</option>
+                        <option value="Short">Short</option>
+                      </select>
+                    </label>
+                    <label>
+                      Date
+                      <input
+                        type="date"
+                        value={tradeForm.date}
+                        onChange={(event) => setTradeForm((current) => ({ ...current, date: event.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      Entry time
+                      <input
+                        type="time"
+                        value={tradeForm.entryTime}
+                        onChange={(event) => setTradeForm((current) => ({ ...current, entryTime: event.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      Exit time
+                      <input
+                        type="time"
+                        value={tradeForm.exitTime}
+                        onChange={(event) => setTradeForm((current) => ({ ...current, exitTime: event.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      PnL
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={tradeForm.pnl}
+                        onChange={(event) => setTradeForm((current) => ({ ...current, pnl: event.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      Quantity
+                      <input
+                        type="number"
+                        step="1"
+                        value={tradeForm.quantity}
+                        onChange={(event) => setTradeForm((current) => ({ ...current, quantity: event.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      Fees
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={tradeForm.fees}
+                        onChange={(event) => setTradeForm((current) => ({ ...current, fees: event.target.value }))}
+                      />
+                    </label>
+                    <label className="full-width">
+                      Notes
+                      <textarea
+                        value={tradeForm.comments}
+                        onChange={(event) => setTradeForm((current) => ({ ...current, comments: event.target.value }))}
+                        placeholder="Trade thesis, execution notes, mistakes, review comments"
+                      />
+                    </label>
+                  </div>
+
+                  <details className="confluence-picker" open>
+                    <summary>Confluences used</summary>
+                    <div className="confluence-options">
+                      {data.settings.confluenceOptions.length === 0 ? (
+                        <p className="empty-copy">Add a confluence preset first.</p>
+                      ) : (
+                        data.settings.confluenceOptions.map((option) => (
+                          <label key={option} className="checkbox-row">
+                            <input
+                              type="checkbox"
+                              checked={tradeForm.confluences.includes(option)}
+                              onChange={() => handleToggleConfluence(option)}
+                            />
+                            <span>{option}</span>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  </details>
+                </div>
+
+                <div className="modal-footer">
+                  <button
+                    className="primary-button"
+                    onClick={() => {
+                      handleSaveTrade();
+                      setShowTradeModal(false);
+                    }}
+                  >
+                    {editingTradeId ? 'Update Trade' : 'Save Trade'}
+                  </button>
+                  <button
+                    className="secondary-button"
+                    onClick={() => {
+                      setShowTradeModal(false);
+                      setEditingTradeId(null);
+                      setTradeForm({ ...emptyTradeForm });
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
-              <label>
-                Session name
-                <input
-                  value={activeSession.name}
-                  onChange={(event) => {
-                    const nextSessions = data.sessions.map((session) =>
-                      session.id === activeSession.id ? { ...session, name: event.target.value } : session
-                    );
-                    persistSessions(nextSessions, activeSession.id);
-                  }}
-                />
-              </label>
-              <label>
-                Starting balance
-                <input
-                  type="number"
-                  step="0.01"
-                  value={activeSession.startingBalance}
-                  onChange={(event) => {
-                    const nextSessions = data.sessions.map((session) =>
-                      session.id === activeSession.id
-                        ? { ...session, startingBalance: Number(event.target.value || 0) }
-                        : session
-                    );
-                    persistSessions(nextSessions, activeSession.id);
-                  }}
-                />
-              </label>
-              <button className="danger-button" type="button" onClick={() => handleDeleteSession(activeSession.id)}>
-                Delete active session
-              </button>
-            </section>
-          </>
-        ) : (
-          <section className="panel empty-workspace">
-            <h2>No session yet</h2>
-            <p>Create a backtest or live session to start logging trades and tracking statistics.</p>
-          </section>
-        )}
-      </main>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
