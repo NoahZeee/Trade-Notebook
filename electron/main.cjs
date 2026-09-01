@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain } = require('electron');
 const fs = require('fs/promises');
 const path = require('path');
 
@@ -54,6 +54,21 @@ app.whenReady().then(() => {
   ipcMain.handle('trade-notebook:save', async (_event, data) => {
     await writeData(data);
     return true;
+  });
+  ipcMain.handle('trade-notebook:export-session', async (_event, { format, filename, content }) => {
+    const ext = format === 'csv' ? 'csv' : 'json';
+    const result = await dialog.showSaveDialog({
+      title: format === 'csv' ? 'Export trading session as CSV' : 'Export trading session as JSON',
+      defaultPath: filename || `trade-session.${ext}`,
+      filters: [{ name: ext.toUpperCase(), extensions: [ext] }]
+    });
+
+    if (result.canceled || !result.filePath) {
+      return null;
+    }
+
+    await fs.writeFile(result.filePath, content, 'utf8');
+    return result.filePath;
   });
 
   createWindow();

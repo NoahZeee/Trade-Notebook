@@ -5,6 +5,7 @@ declare global {
     tradeNotebook: {
       loadData: () => Promise<NotebookData>;
       saveData: (data: NotebookData) => Promise<boolean>;
+      exportSession: (format: 'json' | 'csv', filename: string, content: string) => Promise<string | null>;
     };
   }
 }

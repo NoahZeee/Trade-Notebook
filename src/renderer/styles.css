@@ -292,6 +292,14 @@ textarea {
   font-size: clamp(1.8rem, 2vw, 2.5rem);
 }
 
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .hero-badge {
   min-width: 176px;
   padding: 14px 16px;

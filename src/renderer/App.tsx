@@ -82,6 +82,46 @@ function buildChartData(session: TradeSession) {
   });
 }
 
+function buildCsvExport(session: TradeSession) {
+  const rows = [
+    ['Asset', 'Side', 'Date', 'Entry time', 'Exit time', 'PnL', 'Fees', 'Quantity', 'Confluences', 'Comments'],
+    ...session.trades.map((trade) => [
+      trade.asset,
+      trade.side,
+      trade.date,
+      trade.entryTime,
+      trade.exitTime,
+      String(trade.pnl),
+      String(trade.fees),
+      String(trade.quantity),
+      trade.confluences.join('|'),
+      trade.comments
+    ])
+  ];
+
+  return rows
+    .map((row) =>
+      row
+        .map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`)
+        .join(',')
+    )
+    .join('\n');
+}
+
+async function exportActiveSession(session: TradeSession | null, format: 'json' | 'csv') {
+  if (!session) {
+    return;
+  }
+
+  const content = format === 'json' ? JSON.stringify(session, null, 2) : buildCsvExport(session);
+  const filename = `${session.name.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'trade-session'}.${format}`;
+  const savedPath = await window.tradeNotebook.exportSession(format, filename, content);
+
+  if (savedPath) {
+    window.alert(`Exported ${session.name} to:\n${savedPath}`);
+  }
+}
+
 function updateSession(session: TradeSession, tradeId: string | null, form: TradeFormState): TradeSession {
   const nextTrade: TradeEntry = {
     id: tradeId ?? crypto.randomUUID(),
@@ -344,10 +384,18 @@ export default function App() {
             </p>
           </div>
           {activeSession ? (
-            <div className="hero-badge">
-              <span>{activeSession.type}</span>
-              <strong>{formatCurrency(activeSession.startingBalance)}</strong>
-              <small>starting balance</small>
+            <div className="hero-actions">
+              <div className="hero-badge">
+                <span>{activeSession.type}</span>
+                <strong>{formatCurrency(activeSession.startingBalance)}</strong>
+                <small>starting balance</small>
+              </div>
+              <button className="secondary-button" type="button" onClick={() => void exportActiveSession(activeSession, 'json')}>
+                Export JSON
+              </button>
+              <button className="secondary-button" type="button" onClick={() => void exportActiveSession(activeSession, 'csv')}>
+                Export CSV
+              </button>
             </div>
           ) : null}
         </header>
