@@ -28,3 +28,11 @@ The installer you would share from the repo is [release/Trade-Notebook-Setup-1.0
 - Editable confluence presets
 - Session-level stats for total PnL, win rate, wins, and losses
 - Running balance chart based on the starting balance
+
+### TODO
+- calendar view of daily PnL with weekly PnL at the end of each week
+- additional stats
+    - [AVG W] / [AVG L] ratio
+    - best trade
+    - worst trade
+    - daily, weekly, monthly trends
