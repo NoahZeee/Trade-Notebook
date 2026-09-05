@@ -1,5 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import {
+  Area,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
+} from 'recharts';
 import { defaultNotebookData, NotebookData, SessionType, TradeEntry, TradeSession } from '../shared/types';
 
 type TradeFormState = {
@@ -13,6 +25,42 @@ type TradeFormState = {
   fees: string;
   confluences: string[];
   comments: string;
+};
+
+type TrendPeriod = 'daily' | 'weekly' | 'monthly';
+
+type EquityPoint = {
+  label: string;
+  date: string;
+  balance: number;
+  pnl: number;
+};
+
+type TrendPoint = {
+  label: string;
+  period: string;
+  pnl: number;
+};
+
+type SessionAnalytics = {
+  totalPnL: number;
+  wins: number;
+  losses: number;
+  winrate: number;
+  avgWinner: number | null;
+  avgLoser: number | null;
+  avgWinLossRatio: number | null;
+  bestTrade: TradeEntry | null;
+  worstTrade: TradeEntry | null;
+  accountHigh: number;
+  accountLow: number;
+  peakAccountBalance: number;
+  maxDrawdown: number;
+  maxDrawdownPercent: number;
+  equityCurve: EquityPoint[];
+  dailyPnl: Record<string, number>;
+  weeklyPnl: Record<string, number>;
+  monthlyPnl: Record<string, number>;
 };
 
 const emptyTradeForm: TradeFormState = {
@@ -56,6 +104,40 @@ function computeStats(session: TradeSession) {
   return { totalPnL, wins, losses, winrate };
 }
 
+function netPnl(trade: TradeEntry) {
+  return trade.pnl - trade.fees;
+}
+
+function parseTradeDate(date: string) {
+  return new Date(`${date}T00:00:00`);
+}
+
+function formatDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getWeekStart(date: Date) {
+  const weekStart = new Date(date);
+  const day = weekStart.getDay();
+  const offset = day === 0 ? -6 : 1 - day;
+  weekStart.setDate(weekStart.getDate() + offset);
+  return weekStart;
+}
+
+function getPeriodKey(date: string, period: TrendPeriod) {
+  const parsed = parseTradeDate(date);
+  if (period === 'monthly') {
+    return date.slice(0, 7);
+  }
+  if (period === 'weekly') {
+    return formatDateKey(getWeekStart(parsed));
+  }
+  return date;
+}
+
 function getOrderedTrades(session: TradeSession) {
   if (session.type === 'Backtest') {
     return session.trades;
@@ -68,18 +150,105 @@ function getOrderedTrades(session: TradeSession) {
   });
 }
 
-function buildChartData(session: TradeSession) {
+function buildAnalytics(session: TradeSession): SessionAnalytics {
   const ordered = getOrderedTrades(session);
-
+  const winners = ordered.map(netPnl).filter((value) => value > 0);
+  const losers = ordered.map(netPnl).filter((value) => value < 0);
+  const totalPnL = ordered.reduce((sum, trade) => sum + netPnl(trade), 0);
+  const balances = [session.startingBalance];
+  const equityCurve: EquityPoint[] = [];
+  const dailyPnl: Record<string, number> = {};
+  const weeklyPnl: Record<string, number> = {};
+  const monthlyPnl: Record<string, number> = {};
   let running = 0;
-  return ordered.map((trade, index) => {
-    running += trade.pnl - trade.fees;
-    return {
-      label: `${index + 1}`,
-      balance: session.startingBalance + running,
-      pnl: running
-    };
+  let peak = session.startingBalance;
+  let maxDrawdown = 0;
+  let maxDrawdownPercent = 0;
+
+  ordered.forEach((trade, index) => {
+    const tradePnl = netPnl(trade);
+    running += tradePnl;
+    const balance = session.startingBalance + running;
+    const date = trade.date;
+    const week = getPeriodKey(date, 'weekly');
+    const month = getPeriodKey(date, 'monthly');
+    dailyPnl[date] = (dailyPnl[date] ?? 0) + tradePnl;
+    weeklyPnl[week] = (weeklyPnl[week] ?? 0) + tradePnl;
+    monthlyPnl[month] = (monthlyPnl[month] ?? 0) + tradePnl;
+    peak = Math.max(peak, balance);
+    const drawdown = peak - balance;
+    const drawdownPercent = peak === 0 ? 0 : (drawdown / peak) * 100;
+    maxDrawdown = Math.max(maxDrawdown, drawdown);
+    maxDrawdownPercent = Math.max(maxDrawdownPercent, drawdownPercent);
+    balances.push(balance);
+    equityCurve.push({ label: `${index + 1}`, date, balance, pnl: running });
   });
+
+  const bestTrade = ordered.length ? ordered.reduce((best, trade) => (netPnl(trade) > netPnl(best) ? trade : best)) : null;
+  const worstTrade = ordered.length ? ordered.reduce((worst, trade) => (netPnl(trade) < netPnl(worst) ? trade : worst)) : null;
+  const avgWinner = winners.length ? winners.reduce((sum, value) => sum + value, 0) / winners.length : null;
+  const avgLoser = losers.length ? losers.reduce((sum, value) => sum + value, 0) / losers.length : null;
+
+  return {
+    totalPnL,
+    wins: winners.length,
+    losses: losers.length,
+    winrate: winners.length + losers.length ? (winners.length / (winners.length + losers.length)) * 100 : 0,
+    avgWinner,
+    avgLoser,
+    avgWinLossRatio: avgWinner !== null && avgLoser !== null && avgLoser !== 0 ? avgWinner / Math.abs(avgLoser) : null,
+    bestTrade,
+    worstTrade,
+    accountHigh: Math.max(...balances),
+    accountLow: Math.min(...balances),
+    peakAccountBalance: peak,
+    maxDrawdown,
+    maxDrawdownPercent,
+    equityCurve,
+    dailyPnl,
+    weeklyPnl,
+    monthlyPnl
+  };
+}
+
+function buildTrendData(analytics: SessionAnalytics, period: TrendPeriod): TrendPoint[] {
+  const source = period === 'daily' ? analytics.dailyPnl : period === 'weekly' ? analytics.weeklyPnl : analytics.monthlyPnl;
+  return Object.entries(source)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([periodKey, pnl]) => ({
+      label: period === 'monthly' ? periodKey : periodKey.slice(5),
+      period: periodKey,
+      pnl
+    }));
+}
+
+function buildCalendarWeeks(month: string) {
+  const [year, monthNumber] = month.split('-').map(Number);
+  const firstDay = new Date(year, monthNumber - 1, 1);
+  const lastDay = new Date(year, monthNumber, 0);
+  const start = new Date(firstDay);
+  const firstDayOfWeek = start.getDay();
+  start.setDate(start.getDate() - (firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1));
+  const end = new Date(lastDay);
+  const lastDayOfWeek = end.getDay();
+  end.setDate(end.getDate() + (lastDayOfWeek === 0 ? 0 : 7 - lastDayOfWeek));
+  const weeks: Array<Array<{ date: string; day: number; inMonth: boolean }>> = [];
+  const cursor = new Date(start);
+
+  while (cursor <= end) {
+    const week = [];
+    for (let index = 0; index < 7; index += 1) {
+      week.push({
+        date: formatDateKey(cursor),
+        day: cursor.getDate(),
+        inMonth: cursor.getMonth() === monthNumber - 1
+      });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    weeks.push(week);
+  }
+
+  return weeks;
 }
 
 function buildCsvExport(session: TradeSession) {
@@ -152,6 +321,8 @@ export default function App() {
   const [newConfluence, setNewConfluence] = useState('');
   const [showTradeModal, setShowTradeModal] = useState(false);
   const [currentView, setCurrentView] = useState<'home' | 'session'>('home');
+  const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>('daily');
+  const [calendarMonth, setCalendarMonth] = useState(new Date().toISOString().slice(0, 7));
 
   useEffect(() => {
     let mounted = true;
@@ -183,8 +354,23 @@ export default function App() {
     () => data.sessions.find((session) => session.id === activeSessionId) ?? data.sessions[0] ?? null,
     [activeSessionId, data.sessions]
   );
-  const stats = useMemo(() => (activeSession ? computeStats(activeSession) : null), [activeSession]);
-  const chartData = useMemo(() => (activeSession ? buildChartData(activeSession) : []), [activeSession]);
+  const analytics = useMemo(() => (activeSession ? buildAnalytics(activeSession) : null), [activeSession]);
+  const chartData = analytics?.equityCurve ?? [];
+  const isLiveSession = activeSession?.type === 'Live';
+  const trendData = useMemo(
+    () => (analytics ? buildTrendData(analytics, trendPeriod) : []),
+    [analytics, trendPeriod]
+  );
+  const calendarWeeks = useMemo(() => buildCalendarWeeks(calendarMonth), [calendarMonth]);
+
+  useEffect(() => {
+    if (!activeSession || activeSession.trades.length === 0) {
+      return;
+    }
+
+    const firstTradeDate = [...activeSession.trades].sort((left, right) => left.date.localeCompare(right.date))[0].date;
+    setCalendarMonth(firstTradeDate.slice(0, 7));
+  }, [activeSessionId]);
 
   function handleSelectSession(sessionId: string) {
     setActiveSessionId(sessionId);
@@ -476,26 +662,186 @@ export default function App() {
               <section className="stats-grid">
                 <article className="stat-card accent">
                   <span>Total PnL</span>
-                  <strong>{formatCurrency(stats?.totalPnL ?? 0)}</strong>
+                  <strong>{formatCurrency(analytics?.totalPnL ?? 0)}</strong>
                 </article>
                 <article className="stat-card">
                   <span>Win rate</span>
-                  <strong>{(stats?.winrate ?? 0).toFixed(1)}%</strong>
+                  <strong>{(analytics?.winrate ?? 0).toFixed(1)}%</strong>
                 </article>
                 <article className="stat-card">
                   <span>Wins</span>
-                  <strong>{stats?.wins ?? 0}</strong>
+                  <strong>{analytics?.wins ?? 0}</strong>
                 </article>
                 <article className="stat-card">
                   <span>Losses</span>
-                  <strong>{stats?.losses ?? 0}</strong>
+                  <strong>{analytics?.losses ?? 0}</strong>
+                </article>
+                <article className="stat-card">
+                  <span>Average Winner</span>
+                  <strong className="positive">
+                    {analytics?.avgWinner == null ? '—' : formatCurrency(analytics.avgWinner)}
+                  </strong>
+                </article>
+                <article className="stat-card">
+                  <span>Average Loser</span>
+                  <strong className="negative">
+                    {analytics?.avgLoser == null ? '—' : formatCurrency(analytics.avgLoser)}
+                  </strong>
+                </article>
+                <article className="stat-card">
+                  <span>Avg W/L Ratio</span>
+                  <strong>{analytics?.avgWinLossRatio == null ? '—' : `${analytics.avgWinLossRatio.toFixed(2)}x`}</strong>
+                </article>
+                <article className="stat-card">
+                  <span>Best Trade</span>
+                  <strong className="positive">
+                    {analytics?.bestTrade == null ? '—' : formatCurrency(netPnl(analytics.bestTrade))}
+                  </strong>
+                </article>
+                <article className="stat-card">
+                  <span>Worst Trade</span>
+                  <strong className="negative">
+                    {analytics?.worstTrade == null ? '—' : formatCurrency(netPnl(analytics.worstTrade))}
+                  </strong>
+                </article>
+                <article className="stat-card">
+                  <span>{isLiveSession ? 'Account High' : 'Replay High'}</span>
+                  <strong>{formatCurrency(analytics?.accountHigh ?? activeSession.startingBalance)}</strong>
+                </article>
+                <article className="stat-card">
+                  <span>{isLiveSession ? 'Account Low' : 'Replay Low'}</span>
+                  <strong>{formatCurrency(analytics?.accountLow ?? activeSession.startingBalance)}</strong>
+                </article>
+                <article className="stat-card">
+                  <span>{isLiveSession ? 'Max Drawdown' : 'Replay Drawdown'}</span>
+                  <strong className="negative">
+                    {analytics ? `${formatCurrency(-analytics.maxDrawdown)} (${analytics.maxDrawdownPercent.toFixed(1)}%)` : '—'}
+                  </strong>
                 </article>
               </section>
+
+              {isLiveSession ? (
+                <section className="analytics-grid">
+                <article className="panel calendar-panel">
+                  <div className="panel-head">
+                    <div>
+                      <h2>Daily PnL Calendar</h2>
+                      <span>Weekly totals appear at the end of each row</span>
+                    </div>
+                    <div className="calendar-controls">
+                      <button
+                        type="button"
+                        className="icon-button"
+                        onClick={() => {
+                          const date = parseTradeDate(`${calendarMonth}-01`);
+                          date.setMonth(date.getMonth() - 1);
+                          setCalendarMonth(formatDateKey(date).slice(0, 7));
+                        }}
+                        aria-label="Previous month"
+                      >
+                        ‹
+                      </button>
+                      <strong>
+                        {new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(
+                          parseTradeDate(`${calendarMonth}-01`)
+                        )}
+                      </strong>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        onClick={() => {
+                          const date = parseTradeDate(`${calendarMonth}-01`);
+                          date.setMonth(date.getMonth() + 1);
+                          setCalendarMonth(formatDateKey(date).slice(0, 7));
+                        }}
+                        aria-label="Next month"
+                      >
+                        ›
+                      </button>
+                    </div>
+                  </div>
+                  <div className="calendar-weekdays">
+                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Week'].map((day) => (
+                      <span key={day}>{day}</span>
+                    ))}
+                  </div>
+                  <div className="calendar-grid">
+                    {calendarWeeks.flatMap((week) => [
+                      ...week.map((day) => {
+                        const dayPnl = analytics?.dailyPnl[day.date] ?? 0;
+                        return (
+                          <div
+                            key={day.date}
+                            className={`calendar-day ${day.inMonth ? '' : 'outside-month'} ${
+                              dayPnl > 0 ? 'profit-day' : dayPnl < 0 ? 'loss-day' : ''
+                            }`}
+                          >
+                            <span>{day.day}</span>
+                            {analytics?.dailyPnl[day.date] !== undefined ? (
+                              <strong>{formatCurrency(dayPnl)}</strong>
+                            ) : null}
+                          </div>
+                        );
+                      }),
+                      <div key={`${week[0].date}-total`} className="calendar-week-total">
+                        {formatCurrency(week.reduce((sum, day) => sum + (analytics?.dailyPnl[day.date] ?? 0), 0))}
+                      </div>
+                    ])}
+                  </div>
+                </article>
+
+                <article className="panel trend-panel">
+                  <div className="panel-head">
+                    <div>
+                      <h2>PnL Trends</h2>
+                      <span>Net PnL after fees</span>
+                    </div>
+                    <div className="segmented-control" role="group" aria-label="Trend period">
+                      {(['daily', 'weekly', 'monthly'] as TrendPeriod[]).map((period) => (
+                        <button
+                          key={period}
+                          type="button"
+                          className={trendPeriod === period ? 'active' : ''}
+                          onClick={() => setTrendPeriod(period)}
+                        >
+                          {period[0].toUpperCase() + period.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="trend-chart-wrap">
+                    {trendData.length === 0 ? (
+                      <div className="chart-empty">Add trades to see period trends.</div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={trendData}>
+                          <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+                          <XAxis dataKey="label" tick={{ fill: '#8ea5c7', fontSize: 11 }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fill: '#8ea5c7', fontSize: 12 }} axisLine={false} tickLine={false} />
+                          <ReferenceLine y={0} stroke="rgba(255,255,255,0.28)" />
+                          <Tooltip
+                            formatter={(value) => [formatCurrency(Number(value ?? 0)), 'PnL']}
+                            labelFormatter={(label) => `${trendPeriod} period: ${label}`}
+                            contentStyle={{
+                              background: 'rgba(8, 17, 31, 0.98)',
+                              border: '1px solid rgba(255,255,255,0.12)',
+                              borderRadius: 16,
+                              color: '#eff6ff'
+                            }}
+                          />
+                          <Bar dataKey="pnl" fill="#64d2ff" radius={[5, 5, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </article>
+                </section>
+              ) : null}
 
               <section className="grid two-column">
                 <article className="panel chart-panel">
                   <div className="panel-head">
-                    <h2>Running Balance</h2>
+                    <h2>{isLiveSession ? 'Live Account Curve' : 'Replay Equity Curve'}</h2>
                     <span>{chartData.length} trades</span>
                   </div>
                   <div className="chart-wrap">

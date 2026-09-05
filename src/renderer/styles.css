@@ -343,6 +343,11 @@ textarea {
   font-size: 1.7rem;
 }
 
+.stat-card strong.positive,
+.stat-card strong.negative {
+  font-size: 1.35rem;
+}
+
 .stat-card.accent {
   background: linear-gradient(135deg, rgba(102, 215, 255, 0.15), rgba(124, 140, 255, 0.1));
 }
@@ -492,6 +497,10 @@ th {
   .grid.two-column {
     grid-template-columns: 1fr;
   }
+
+  .analytics-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 760px) {
@@ -513,6 +522,31 @@ th {
   .hero-badge {
     width: 100%;
     text-align: left;
+  }
+
+  .calendar-panel .panel-head,
+  .trend-panel .panel-head {
+    flex-direction: column;
+  }
+
+  .calendar-controls,
+  .segmented-control {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .segmented-control button {
+    flex: 1;
+  }
+
+  .calendar-day,
+  .calendar-week-total {
+    min-height: 50px;
+    padding: 5px;
+  }
+
+  .calendar-day strong {
+    font-size: 0.62rem;
   }
 }
 
@@ -986,4 +1020,155 @@ th {
   .modal-footer button {
     width: 100%;
   }
+}
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.analytics-grid .panel {
+  min-width: 0;
+}
+
+.calendar-panel .panel-head,
+.trend-panel .panel-head {
+  align-items: flex-start;
+}
+
+.calendar-panel .panel-head > div:first-child,
+.trend-panel .panel-head > div:first-child {
+  display: grid;
+  gap: 6px;
+}
+
+.calendar-panel .panel-head span,
+.trend-panel .panel-head span {
+  font-size: 0.8rem;
+}
+
+.calendar-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.icon-button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.icon-button:hover {
+  background: rgba(102, 215, 255, 0.12);
+  border-color: rgba(102, 215, 255, 0.4);
+}
+
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.calendar-weekdays {
+  margin-bottom: 5px;
+}
+
+.calendar-weekdays span {
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.calendar-day,
+.calendar-week-total {
+  min-height: 58px;
+  padding: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.025);
+  display: grid;
+  align-content: space-between;
+  gap: 4px;
+}
+
+.calendar-day > span {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.calendar-day strong {
+  font-size: 0.72rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-day.profit-day {
+  background: rgba(82, 227, 180, 0.12);
+  border-color: rgba(82, 227, 180, 0.22);
+}
+
+.calendar-day.profit-day strong {
+  color: var(--success);
+}
+
+.calendar-day.loss-day {
+  background: rgba(255, 122, 148, 0.12);
+  border-color: rgba(255, 122, 148, 0.22);
+}
+
+.calendar-day.loss-day strong {
+  color: var(--danger);
+}
+
+.calendar-day.outside-month {
+  opacity: 0.35;
+}
+
+.calendar-week-total {
+  background: rgba(102, 215, 255, 0.08);
+  border-color: rgba(102, 215, 255, 0.18);
+  color: var(--accent);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  text-align: right;
+}
+
+.segmented-control {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.segmented-control button {
+  border: 0;
+  border-radius: 7px;
+  padding: 7px 9px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.segmented-control button.active {
+  background: rgba(102, 215, 255, 0.18);
+  color: var(--text);
+}
+
+.trend-chart-wrap {
+  height: 300px;
 }
