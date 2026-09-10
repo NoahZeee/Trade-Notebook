@@ -44,6 +44,7 @@ type TrendPoint = {
 
 type SessionAnalytics = {
   totalPnL: number;
+  accountBalance: number;
   wins: number;
   losses: number;
   winrate: number;
@@ -59,6 +60,7 @@ type SessionAnalytics = {
   maxDrawdownPercent: number;
   equityCurve: EquityPoint[];
   dailyPnl: Record<string, number>;
+  dailyTradeCounts: Record<string, number>;
   weeklyPnl: Record<string, number>;
   monthlyPnl: Record<string, number>;
 };
@@ -158,6 +160,7 @@ function buildAnalytics(session: TradeSession): SessionAnalytics {
   const balances = [session.startingBalance];
   const equityCurve: EquityPoint[] = [];
   const dailyPnl: Record<string, number> = {};
+  const dailyTradeCounts: Record<string, number> = {};
   const weeklyPnl: Record<string, number> = {};
   const monthlyPnl: Record<string, number> = {};
   let running = 0;
@@ -173,6 +176,7 @@ function buildAnalytics(session: TradeSession): SessionAnalytics {
     const week = getPeriodKey(date, 'weekly');
     const month = getPeriodKey(date, 'monthly');
     dailyPnl[date] = (dailyPnl[date] ?? 0) + tradePnl;
+    dailyTradeCounts[date] = (dailyTradeCounts[date] ?? 0) + 1;
     weeklyPnl[week] = (weeklyPnl[week] ?? 0) + tradePnl;
     monthlyPnl[month] = (monthlyPnl[month] ?? 0) + tradePnl;
     peak = Math.max(peak, balance);
@@ -191,6 +195,7 @@ function buildAnalytics(session: TradeSession): SessionAnalytics {
 
   return {
     totalPnL,
+    accountBalance: session.startingBalance + totalPnL,
     wins: winners.length,
     losses: losers.length,
     winrate: winners.length + losers.length ? (winners.length / (winners.length + losers.length)) * 100 : 0,
@@ -206,6 +211,7 @@ function buildAnalytics(session: TradeSession): SessionAnalytics {
     maxDrawdownPercent,
     equityCurve,
     dailyPnl,
+    dailyTradeCounts,
     weeklyPnl,
     monthlyPnl
   };
@@ -532,6 +538,7 @@ export default function App() {
                   {data.sessions.map((session) => {
                     const sessionStats = computeStats(session);
                     const netPnL = sessionStats.totalPnL;
+                    const accountBalance = session.startingBalance + netPnL;
                     return (
                       <div
                         key={session.id}
@@ -565,6 +572,10 @@ export default function App() {
                             <span className={`value ${netPnL >= 0 ? 'positive' : 'negative'}`}>
                               {formatCurrency(netPnL)}
                             </span>
+                          </div>
+                          <div className="stat-mini">
+                            <span className="label">Account Balance</span>
+                            <span className="value">{formatCurrency(accountBalance)}</span>
                           </div>
                           <div className="stat-mini">
                             <span className="label">Win Rate</span>
@@ -659,10 +670,14 @@ export default function App() {
 
           {activeSession ? (
             <main className="session-content">
-              <section className="stats-grid">
+              <section className="stats-grid stats-primary">
                 <article className="stat-card accent">
                   <span>Total PnL</span>
                   <strong>{formatCurrency(analytics?.totalPnL ?? 0)}</strong>
+                </article>
+                <article className="stat-card accent">
+                  <span>Account Balance</span>
+                  <strong>{formatCurrency(analytics?.accountBalance ?? activeSession.startingBalance)}</strong>
                 </article>
                 <article className="stat-card">
                   <span>Win rate</span>
@@ -676,6 +691,9 @@ export default function App() {
                   <span>Losses</span>
                   <strong>{analytics?.losses ?? 0}</strong>
                 </article>
+              </section>
+
+              <section className="stats-grid stats-secondary">
                 <article className="stat-card">
                   <span>Average Winner</span>
                   <strong className="positive">
@@ -769,6 +787,7 @@ export default function App() {
                     {calendarWeeks.flatMap((week) => [
                       ...week.map((day) => {
                         const dayPnl = analytics?.dailyPnl[day.date] ?? 0;
+                        const tradeCount = analytics?.dailyTradeCounts[day.date] ?? 0;
                         return (
                           <div
                             key={day.date}
@@ -777,6 +796,7 @@ export default function App() {
                             }`}
                           >
                             <span>{day.day}</span>
+                            {tradeCount > 0 ? <small className="calendar-trade-count">{tradeCount}</small> : null}
                             {analytics?.dailyPnl[day.date] !== undefined ? (
                               <strong>{formatCurrency(dayPnl)}</strong>
                             ) : null}
@@ -848,7 +868,7 @@ export default function App() {
                     {chartData.length === 0 ? (
                       <div className="chart-empty">Add trades to see the balance curve.</div>
                     ) : (
-                      <ResponsiveContainer width="100%" height={320}>
+                        <ResponsiveContainer width="100%" height={300}>
                         <ComposedChart data={chartData}>
                           <defs>
                             <linearGradient id="balanceFill" x1="0" x2="0" y1="0" y2="1">
