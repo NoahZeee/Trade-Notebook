@@ -28,6 +28,7 @@ type TradeFormState = {
 };
 
 type TrendPeriod = 'daily' | 'weekly' | 'monthly';
+type EquityCurveMode = 'line' | 'smooth';
 
 type EquityPoint = {
   label: string;
@@ -257,6 +258,82 @@ function buildCalendarWeeks(month: string) {
   return weeks;
 }
 
+function getBalanceDomain(data: EquityPoint[], startingBalance: number): [number, number] {
+  const balances = [startingBalance, ...data.map((point) => point.balance)];
+  const minimum = Math.min(...balances);
+  const maximum = Math.max(...balances);
+  const range = maximum - minimum;
+  const padding = Math.max(range * 0.12, Math.abs(startingBalance) * 0.01, 1);
+
+  return [minimum - padding, maximum + padding];
+}
+
+function EquityCurveChart({
+  data,
+  startingBalance,
+  mode,
+  height
+}: {
+  data: EquityPoint[];
+  startingBalance: number;
+  mode: EquityCurveMode;
+  height: number;
+}) {
+  const smooth = mode === 'smooth';
+  const domain = getBalanceDomain(data, startingBalance);
+
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <ComposedChart data={data} margin={{ top: 12, right: 18, bottom: 4, left: 8 }}>
+        <defs>
+          <linearGradient id="balanceFill" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="5%" stopColor="#64d2ff" stopOpacity={0.36} />
+            <stop offset="95%" stopColor="#64d2ff" stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+        <XAxis
+          dataKey="label"
+          type="category"
+          interval="preserveStartEnd"
+          tick={{ fill: '#8ea5c7', fontSize: 12 }}
+          axisLine={false}
+          tickLine={false}
+          label={{ value: 'Trade', position: 'insideBottomRight', fill: '#8ea5c7', fontSize: 11, offset: -2 }}
+        />
+        <YAxis
+          domain={domain}
+          tick={{ fill: '#8ea5c7', fontSize: 12 }}
+          axisLine={false}
+          tickLine={false}
+          tickFormatter={(value) => formatCurrency(Number(value)).replace('.00', '')}
+          width={76}
+        />
+        <ReferenceLine y={startingBalance} stroke="rgba(255,255,255,0.3)" strokeDasharray="5 5" />
+        <Tooltip
+          formatter={(value) => [formatCurrency(Number(value ?? 0)), 'Balance']}
+          labelFormatter={(label) => `Trade ${label}`}
+          contentStyle={{
+            background: 'rgba(8, 17, 31, 0.98)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: 16,
+            color: '#eff6ff'
+          }}
+        />
+        {smooth ? <Area type="monotone" dataKey="balance" stroke="transparent" fill="url(#balanceFill)" /> : null}
+        <Line
+          type={smooth ? 'monotone' : 'linear'}
+          dataKey="balance"
+          stroke="#64d2ff"
+          strokeWidth={3}
+          dot={smooth ? false : { r: 3, fill: '#64d2ff', strokeWidth: 0 }}
+          activeDot={{ r: 5 }}
+        />
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
 function buildCsvExport(session: TradeSession) {
   const rows = [
     ['Asset', 'Side', 'Date', 'Entry time', 'Exit time', 'PnL', 'Fees', 'Quantity', 'Confluences', 'Comments'],
@@ -329,6 +406,8 @@ export default function App() {
   const [currentView, setCurrentView] = useState<'home' | 'session'>('home');
   const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>('daily');
   const [calendarMonth, setCalendarMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [equityCurveMode, setEquityCurveMode] = useState<EquityCurveMode>('smooth');
+  const [isEquityFullscreen, setIsEquityFullscreen] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -861,36 +940,48 @@ export default function App() {
               <section className="grid two-column">
                 <article className="panel chart-panel">
                   <div className="panel-head">
-                    <h2>{isLiveSession ? 'Live Account Curve' : 'Replay Equity Curve'}</h2>
-                    <span>{chartData.length} trades</span>
+                    <div>
+                      <h2>{isLiveSession ? 'Live Account Curve' : 'Replay Equity Curve'}</h2>
+                      <span>{chartData.length} trades · evenly spaced by trade</span>
+                    </div>
+                    <div className="chart-controls">
+                      <div className="segmented-control" role="group" aria-label="Equity curve style">
+                        <button
+                          type="button"
+                          className={equityCurveMode === 'line' ? 'active' : ''}
+                          onClick={() => setEquityCurveMode('line')}
+                        >
+                          Points
+                        </button>
+                        <button
+                          type="button"
+                          className={equityCurveMode === 'smooth' ? 'active' : ''}
+                          onClick={() => setEquityCurveMode('smooth')}
+                        >
+                          Smooth
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        className="chart-expand-button"
+                        onClick={() => setIsEquityFullscreen(true)}
+                        aria-label="Open equity curve fullscreen"
+                        title="Fullscreen"
+                      >
+                        ⛶
+                      </button>
+                    </div>
                   </div>
                   <div className="chart-wrap">
                     {chartData.length === 0 ? (
                       <div className="chart-empty">Add trades to see the balance curve.</div>
                     ) : (
-                        <ResponsiveContainer width="100%" height={300}>
-                        <ComposedChart data={chartData}>
-                          <defs>
-                            <linearGradient id="balanceFill" x1="0" x2="0" y1="0" y2="1">
-                              <stop offset="5%" stopColor="#64d2ff" stopOpacity={0.36} />
-                              <stop offset="95%" stopColor="#64d2ff" stopOpacity={0.02} />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
-                          <XAxis dataKey="label" tick={{ fill: '#8ea5c7', fontSize: 12 }} axisLine={false} tickLine={false} />
-                          <YAxis tick={{ fill: '#8ea5c7', fontSize: 12 }} axisLine={false} tickLine={false} />
-                          <Tooltip
-                            contentStyle={{
-                              background: 'rgba(8, 17, 31, 0.98)',
-                              border: '1px solid rgba(255,255,255,0.12)',
-                              borderRadius: 16,
-                              color: '#eff6ff'
-                            }}
-                          />
-                          <Area type="monotone" dataKey="balance" stroke="transparent" fill="url(#balanceFill)" />
-                          <Line type="monotone" dataKey="balance" stroke="#64d2ff" strokeWidth={3} dot={false} />
-                        </ComposedChart>
-                      </ResponsiveContainer>
+                      <EquityCurveChart
+                        data={chartData}
+                        startingBalance={activeSession.startingBalance}
+                        mode={equityCurveMode}
+                        height={300}
+                      />
                     )}
                   </div>
                 </article>
@@ -1006,6 +1097,41 @@ export default function App() {
                 </div>
               </section>
             </main>
+          ) : null}
+
+          {isEquityFullscreen && activeSession && chartData.length > 0 ? (
+            <div
+              className="chart-fullscreen-overlay"
+              onClick={() => setIsEquityFullscreen(false)}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Fullscreen equity curve"
+            >
+              <div className="chart-fullscreen-panel" onClick={(event) => event.stopPropagation()}>
+                <div className="panel-head">
+                  <div>
+                    <h2>{isLiveSession ? 'Live Account Curve' : 'Replay Equity Curve'}</h2>
+                    <span>{chartData.length} trades · padded scale · evenly spaced by trade</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="chart-close-button"
+                    onClick={() => setIsEquityFullscreen(false)}
+                    aria-label="Close fullscreen equity curve"
+                  >
+                    ×
+                  </button>
+                </div>
+                <div className="chart-fullscreen-wrap">
+                  <EquityCurveChart
+                    data={chartData}
+                    startingBalance={activeSession.startingBalance}
+                    mode={equityCurveMode}
+                    height={Math.max(460, window.innerHeight - 210)}
+                  />
+                </div>
+              </div>
+            </div>
           ) : null}
 
           {/* TRADE FORM MODAL */}

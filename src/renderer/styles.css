@@ -415,6 +415,81 @@ textarea {
   height: 300px;
 }
 
+.chart-panel .panel-head > div:first-child {
+  display: grid;
+  gap: 6px;
+}
+
+.chart-panel .panel-head span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.chart-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.chart-expand-button,
+.chart-close-button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.chart-expand-button:hover,
+.chart-close-button:hover {
+  background: rgba(102, 215, 255, 0.12);
+  border-color: rgba(102, 215, 255, 0.4);
+}
+
+.chart-fullscreen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: rgba(2, 7, 14, 0.86);
+  backdrop-filter: blur(12px);
+}
+
+.chart-fullscreen-panel {
+  width: min(1400px, 100%);
+  height: min(900px, 100%);
+  padding: 22px 24px 24px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(13, 24, 40, 0.99), rgba(8, 15, 26, 0.99));
+  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.55);
+}
+
+.chart-fullscreen-panel .panel-head {
+  align-items: flex-start;
+}
+
+.chart-fullscreen-panel .panel-head > div:first-child {
+  display: grid;
+  gap: 6px;
+}
+
+.chart-fullscreen-panel .panel-head span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.chart-fullscreen-wrap {
+  height: calc(100% - 58px);
+  min-height: 300px;
+}
+
 .chart-wrap svg {
   width: 100%;
   height: 100%;
@@ -544,6 +619,16 @@ th {
     justify-content: space-between;
   }
 
+  .chart-panel .panel-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .chart-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
   .segmented-control button {
     flex: 1;
   }
@@ -556,6 +641,15 @@ th {
 
   .calendar-day strong {
     font-size: 0.62rem;
+  }
+
+  .chart-fullscreen-overlay {
+    padding: 10px;
+  }
+
+  .chart-fullscreen-panel {
+    padding: 16px;
+    border-radius: 16px;
   }
 }
 
