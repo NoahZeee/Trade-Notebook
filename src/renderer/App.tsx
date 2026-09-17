@@ -408,6 +408,10 @@ export default function App() {
   const [calendarMonth, setCalendarMonth] = useState(new Date().toISOString().slice(0, 7));
   const [equityCurveMode, setEquityCurveMode] = useState<EquityCurveMode>('smooth');
   const [isEquityFullscreen, setIsEquityFullscreen] = useState(false);
+  const [tradeDateSearch, setTradeDateSearch] = useState('');
+  const [tradeAssetFilter, setTradeAssetFilter] = useState('');
+  const [tradeSideFilter, setTradeSideFilter] = useState<'Long' | 'Short' | ''>('');
+  const [tradeConfluenceFilter, setTradeConfluenceFilter] = useState('');
 
   useEffect(() => {
     let mounted = true;
@@ -447,6 +451,30 @@ export default function App() {
     [analytics, trendPeriod]
   );
   const calendarWeeks = useMemo(() => buildCalendarWeeks(calendarMonth), [calendarMonth]);
+  const assetOptions = useMemo(
+    () => (activeSession ? [...new Set(activeSession.trades.map((trade) => trade.asset))].sort() : []),
+    [activeSession]
+  );
+  const confluenceOptions = useMemo(
+    () =>
+      activeSession
+        ? [...new Set(activeSession.trades.flatMap((trade) => trade.confluences))].sort()
+        : [],
+    [activeSession]
+  );
+  const filteredTrades = useMemo(() => {
+    if (!activeSession) {
+      return [];
+    }
+
+    return getOrderedTrades(activeSession).filter((trade) => {
+      const matchesDate = !tradeDateSearch || trade.date === tradeDateSearch;
+      const matchesAsset = !tradeAssetFilter || trade.asset === tradeAssetFilter;
+      const matchesSide = !tradeSideFilter || trade.side === tradeSideFilter;
+      const matchesConfluence = !tradeConfluenceFilter || trade.confluences.includes(tradeConfluenceFilter);
+      return matchesDate && matchesAsset && matchesSide && matchesConfluence;
+    });
+  }, [activeSession, tradeAssetFilter, tradeConfluenceFilter, tradeDateSearch, tradeSideFilter]);
 
   useEffect(() => {
     if (!activeSession || activeSession.trades.length === 0) {
@@ -461,12 +489,23 @@ export default function App() {
     setActiveSessionId(sessionId);
     setCurrentView('session');
     setShowTradeModal(false);
+    setTradeDateSearch('');
+    setTradeAssetFilter('');
+    setTradeSideFilter('');
+    setTradeConfluenceFilter('');
   }
 
   function handleBackToHome() {
     setCurrentView('home');
     setEditingTradeId(null);
     setTradeForm({ ...emptyTradeForm });
+  }
+
+  function clearTradeFilters() {
+    setTradeDateSearch('');
+    setTradeAssetFilter('');
+    setTradeSideFilter('');
+    setTradeConfluenceFilter('');
   }
 
   function persistSessions(nextSessions: TradeSession[], nextActiveSessionId: string | null = activeSessionId) {
@@ -1033,7 +1072,59 @@ export default function App() {
               <section className="panel table-panel">
                 <div className="panel-head">
                   <h2>Trade Log</h2>
-                  <span>{activeSession.trades.length} trades</span>
+                  <span>
+                    {filteredTrades.length} of {activeSession.trades.length} trades
+                  </span>
+                </div>
+
+                <div className="trade-log-filters">
+                  <label>
+                    Search date
+                    <input
+                      type="date"
+                      value={tradeDateSearch}
+                      onChange={(event) => setTradeDateSearch(event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Asset
+                    <select value={tradeAssetFilter} onChange={(event) => setTradeAssetFilter(event.target.value)}>
+                      <option value="">All assets</option>
+                      {assetOptions.map((asset) => (
+                        <option key={asset} value={asset}>
+                          {asset}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Side
+                    <select
+                      value={tradeSideFilter}
+                      onChange={(event) => setTradeSideFilter(event.target.value as 'Long' | 'Short' | '')}
+                    >
+                      <option value="">All sides</option>
+                      <option value="Long">Long</option>
+                      <option value="Short">Short</option>
+                    </select>
+                  </label>
+                  <label>
+                    Confluence
+                    <select
+                      value={tradeConfluenceFilter}
+                      onChange={(event) => setTradeConfluenceFilter(event.target.value)}
+                    >
+                      <option value="">All confluences</option>
+                      {confluenceOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button className="secondary-button clear-filters-button" type="button" onClick={clearTradeFilters}>
+                    Clear filters
+                  </button>
                 </div>
 
                 <div className="table-wrap">
@@ -1052,14 +1143,16 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {getOrderedTrades(activeSession).length === 0 ? (
+                      {filteredTrades.length === 0 ? (
                         <tr>
                           <td colSpan={9} className="empty-table">
-                            No trades logged yet. Click "Add Trade" to get started.
+                            {activeSession.trades.length === 0
+                              ? 'No trades logged yet. Click "Add Trade" to get started.'
+                              : 'No trades match the current filters.'}
                           </td>
                         </tr>
                       ) : (
-                        getOrderedTrades(activeSession).map((trade) => (
+                        filteredTrades.map((trade) => (
                           <tr key={trade.id}>
                             <td>{trade.asset}</td>
                             <td>
