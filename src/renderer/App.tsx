@@ -52,6 +52,9 @@ type SessionAnalytics = {
   avgWinner: number | null;
   avgLoser: number | null;
   avgWinLossRatio: number | null;
+  avgEntryTime: string | null;
+  avgExitTime: string | null;
+  avgHoldingMinutes: number | null;
   bestTrade: TradeEntry | null;
   worstTrade: TradeEntry | null;
   accountHigh: number;
@@ -109,6 +112,40 @@ function computeStats(session: TradeSession) {
 
 function netPnl(trade: TradeEntry) {
   return trade.pnl - trade.fees;
+}
+
+function parseTimeMinutes(time: string) {
+  const [hours, minutes] = time.split(':').map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+    return null;
+  }
+  return hours * 60 + minutes;
+}
+
+function formatTimeMinutes(minutes: number) {
+  const normalized = Math.round(minutes) % (24 * 60);
+  const hours = Math.floor((normalized + 24 * 60) / 60) % 24;
+  const clockMinutes = (normalized + 24 * 60) % 60;
+  return `${String(hours).padStart(2, '0')}:${String(clockMinutes).padStart(2, '0')}`;
+}
+
+function formatDurationMinutes(minutes: number | null) {
+  if (minutes === null) {
+    return '—';
+  }
+  const rounded = Math.round(minutes);
+  const hours = Math.floor(rounded / 60);
+  const remainingMinutes = rounded % 60;
+  return hours > 0 ? `${hours}h ${remainingMinutes}m` : `${remainingMinutes}m`;
+}
+
+function getHoldingMinutes(trade: TradeEntry) {
+  const entry = parseTimeMinutes(trade.entryTime);
+  const exit = parseTimeMinutes(trade.exitTime);
+  if (entry === null || exit === null) {
+    return null;
+  }
+  return exit >= entry ? exit - entry : exit + 24 * 60 - entry;
 }
 
 function parseTradeDate(date: string) {
@@ -193,6 +230,9 @@ function buildAnalytics(session: TradeSession): SessionAnalytics {
   const worstTrade = ordered.length ? ordered.reduce((worst, trade) => (netPnl(trade) < netPnl(worst) ? trade : worst)) : null;
   const avgWinner = winners.length ? winners.reduce((sum, value) => sum + value, 0) / winners.length : null;
   const avgLoser = losers.length ? losers.reduce((sum, value) => sum + value, 0) / losers.length : null;
+  const entryTimes = ordered.map((trade) => parseTimeMinutes(trade.entryTime)).filter((value): value is number => value !== null);
+  const exitTimes = ordered.map((trade) => parseTimeMinutes(trade.exitTime)).filter((value): value is number => value !== null);
+  const holdingTimes = ordered.map(getHoldingMinutes).filter((value): value is number => value !== null);
 
   return {
     totalPnL,
@@ -203,6 +243,15 @@ function buildAnalytics(session: TradeSession): SessionAnalytics {
     avgWinner,
     avgLoser,
     avgWinLossRatio: avgWinner !== null && avgLoser !== null && avgLoser !== 0 ? avgWinner / Math.abs(avgLoser) : null,
+    avgEntryTime: entryTimes.length
+      ? formatTimeMinutes(entryTimes.reduce((sum, value) => sum + value, 0) / entryTimes.length)
+      : null,
+    avgExitTime: exitTimes.length
+      ? formatTimeMinutes(exitTimes.reduce((sum, value) => sum + value, 0) / exitTimes.length)
+      : null,
+    avgHoldingMinutes: holdingTimes.length
+      ? holdingTimes.reduce((sum, value) => sum + value, 0) / holdingTimes.length
+      : null,
     bestTrade,
     worstTrade,
     accountHigh: Math.max(...balances),
@@ -853,6 +902,21 @@ export default function App() {
                   <strong className="negative">
                     {analytics ? `${formatCurrency(-analytics.maxDrawdown)} (${analytics.maxDrawdownPercent.toFixed(1)}%)` : '—'}
                   </strong>
+                </article>
+              </section>
+
+              <section className="stats-grid stats-timing">
+                <article className="stat-card">
+                  <span>Average Entry Time</span>
+                  <strong>{analytics?.avgEntryTime ?? '—'}</strong>
+                </article>
+                <article className="stat-card">
+                  <span>Average Exit Time</span>
+                  <strong>{analytics?.avgExitTime ?? '—'}</strong>
+                </article>
+                <article className="stat-card">
+                  <span>Average Holding Time</span>
+                  <strong>{formatDurationMinutes(analytics?.avgHoldingMinutes ?? null)}</strong>
                 </article>
               </section>
 

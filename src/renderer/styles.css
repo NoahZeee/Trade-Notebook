@@ -337,6 +337,10 @@ textarea {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.stats-timing {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .stat-card {
   min-width: 0;
   padding: 14px 16px;
@@ -650,6 +654,10 @@ th {
 
   .stats-grid,
   .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-timing {
     grid-template-columns: 1fr;
   }
 
